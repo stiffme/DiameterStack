@@ -5,8 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.esipeng</groupId>
-    <artifactId>diameter_stack</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>diameterStack</artifactId>
+    <version>1.2-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
