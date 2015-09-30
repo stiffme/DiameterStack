@@ -4,35 +4,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 public class Capability
 {
   Set<Integer> supported_vendor;
@@ -46,108 +17,113 @@ public class Capability
     public int vendor_id;
     public int application_id;
     
-    public VendorApplication(int paramInt1, int paramInt2)
+    public VendorApplication(int vendor, int app)
     {
-      this.vendor_id = paramInt1;
-      this.application_id = paramInt2;
+      this.vendor_id = vendor;
+      this.application_id = app;
     }
     
     public int hashCode() { return this.vendor_id + this.application_id; }
     
-    public boolean equals(Object paramObject) {
-      if (this == paramObject)
+    public boolean equals(Object other) {
+      if (this == other)
         return true;
-      if ((paramObject == null) || (paramObject.getClass() != getClass()))
+      if ((other == null) || (other.getClass() != getClass()))
         return false;
-      return (((VendorApplication)paramObject).vendor_id == this.vendor_id) && (((VendorApplication)paramObject).application_id == this.application_id);
+      return (((VendorApplication)other).vendor_id == this.vendor_id) && (((VendorApplication)other).application_id == this.application_id);
     }
   }
-  
-
-
-
-
-
-
 
 
 
   public Capability()
   {
-    this.supported_vendor = new HashSet();
-    this.auth_app = new HashSet();
-    this.acct_app = new HashSet();
-    this.auth_vendor = new HashSet();
-    this.acct_vendor = new HashSet();
+    this.supported_vendor = new HashSet<Integer>();
+    this.auth_app = new HashSet<Integer>();
+    this.acct_app = new HashSet<Integer>();
+    this.auth_vendor = new HashSet<VendorApplication>();
+    this.acct_vendor = new HashSet<VendorApplication>();
   }
   
-  public Capability(Capability paramCapability)
+  public Capability(Capability other)
   {
-    this.supported_vendor = new HashSet();
-			  //Object localObject;
-    for (Iterator localIterator = paramCapability.supported_vendor.iterator(); localIterator.hasNext();) { Integer localObject = (Integer)localIterator.next();
-      this.supported_vendor.add(localObject); }
-    Object localObject; this.auth_app = new HashSet();
-    for (Iterator localIterator = paramCapability.auth_app.iterator(); localIterator.hasNext();) {Integer localObject2 = (Integer)localIterator.next();
-      this.auth_app.add(localObject2); }
-    this.acct_app = new HashSet();
-    for (Iterator localIterator = paramCapability.acct_app.iterator(); localIterator.hasNext();) {Integer localObject3 = (Integer)localIterator.next();
-      this.acct_app.add(localObject3); }
-    this.auth_vendor = new HashSet();
-    for (Iterator localIterator = paramCapability.auth_vendor.iterator(); localIterator.hasNext();) {VendorApplication localObject4 = (VendorApplication)localIterator.next();
-      this.auth_vendor.add(localObject4); }
-    this.acct_vendor = new HashSet();
-    for (Iterator localIterator = paramCapability.acct_vendor.iterator(); localIterator.hasNext();) {VendorApplication localObject5 = (VendorApplication)localIterator.next();
-      this.acct_vendor.add(localObject5);
+    this.supported_vendor = new HashSet<Integer>();
+    for (Iterator<Integer> itSupportedVendor = other.supported_vendor.iterator(); itSupportedVendor.hasNext();) {
+      Integer vendor = itSupportedVendor.next();
+      this.supported_vendor.add(vendor);
+    }
+
+    this.auth_app = new HashSet<Integer>();
+    for (Iterator<Integer> itAuthApp = other.auth_app.iterator(); itAuthApp.hasNext();) {
+      Integer auth = itAuthApp.next();
+      this.auth_app.add(auth);
+    }
+
+    this.acct_app = new HashSet<Integer>();
+    for (Iterator<Integer> itAcct = other.acct_app.iterator(); itAcct.hasNext();) {
+      Integer acct = itAcct.next();
+      this.acct_app.add(acct);
+    }
+
+    this.auth_vendor = new HashSet<VendorApplication>();
+    for (Iterator<VendorApplication> authVendor = other.auth_vendor.iterator(); authVendor.hasNext();) {
+      VendorApplication vendorApplication = authVendor.next();
+      this.auth_vendor.add(vendorApplication);
+    }
+
+    this.acct_vendor = new HashSet<VendorApplication>();
+    for (Iterator<VendorApplication> itVendorApp = other.acct_vendor.iterator(); itVendorApp.hasNext();) {
+        VendorApplication acctVendor = itVendorApp.next();
+        this.acct_vendor.add(acctVendor);
     }
   }
   
-  public boolean isSupportedVendor(int paramInt) {
-    return this.supported_vendor.contains(Integer.valueOf(paramInt));
+  public boolean isSupportedVendor(int vendorId) {
+    return this.supported_vendor.contains(Integer.valueOf(vendorId));
   }
   
 
 
-  public boolean isAllowedAuthApp(int paramInt)
+  public boolean isAllowedAuthApp(int authId)
   {
-    return (this.auth_app.contains(Integer.valueOf(paramInt))) || (this.auth_app.contains(Integer.valueOf(-1)));
+    return (this.auth_app.contains(Integer.valueOf(authId))) || (this.auth_app.contains(Integer.valueOf(-1)));
   }
   
 
 
 
-  public boolean isAllowedAcctApp(int paramInt)
+  public boolean isAllowedAcctApp(int authId)
   {
-    return (this.acct_app.contains(Integer.valueOf(paramInt))) || (this.acct_app.contains(Integer.valueOf(-1)));
+    return (this.acct_app.contains(Integer.valueOf(authId))) || (this.acct_app.contains(Integer.valueOf(-1)));
   }
   
 
 
-  public boolean isAllowedAuthApp(int paramInt1, int paramInt2)
+  public boolean isAllowedAuthApp(int vendor, int app)
   {
-    return this.auth_vendor.contains(new VendorApplication(paramInt1, paramInt2));
+    return this.auth_vendor.contains(new VendorApplication(vendor, app));
   }
   
 
-  public boolean isAllowedAcctApp(int paramInt1, int paramInt2)
+  public boolean isAllowedAcctApp(int vendor, int app)
   {
-    return this.acct_vendor.contains(new VendorApplication(paramInt1, paramInt2));
+    return this.acct_vendor.contains(new VendorApplication(vendor, app));
   }
   
-  public void addSupportedVendor(int paramInt) {
-    this.supported_vendor.add(Integer.valueOf(paramInt));
+  public void addSupportedVendor(int vendor) {
+    this.supported_vendor.add(Integer.valueOf(vendor));
   }
   
-  public void addAuthApp(int paramInt) { this.auth_app.add(Integer.valueOf(paramInt)); }
+  public void addAuthApp(int auth) { this.auth_app.add(Integer.valueOf(auth)); }
   
-  public void addAcctApp(int paramInt) {
-    this.acct_app.add(Integer.valueOf(paramInt));
+  public void addAcctApp(int acct) {
+    this.acct_app.add(Integer.valueOf(acct));
   }
   
-  public void addVendorAuthApp(int paramInt1, int paramInt2) { this.auth_vendor.add(new VendorApplication(paramInt1, paramInt2)); }
+  public void addVendorAuthApp(int vendor, int auth) { this.auth_vendor.add(new VendorApplication(vendor, auth)); }
   
-  public void addVendorAcctApp(int paramInt1, int paramInt2) {
-    this.acct_vendor.add(new VendorApplication(paramInt1, paramInt2));
+  public void addVendorAcctApp(int vendor, int auth) {
+    this.acct_vendor.add(new VendorApplication(vendor, auth));
   }
   
 
@@ -163,36 +139,45 @@ public class Capability
 
 
 
-  static Capability calculateIntersection(Capability paramCapability1, Capability paramCapability2)
+  static Capability calculateIntersection(Capability capa1, Capability capa2)
   {
-    Capability localCapability = new Capability();
-    for (Iterator localIterator = paramCapability2.supported_vendor.iterator(); localIterator.hasNext();) {Integer localObject = (Integer)localIterator.next();
-      if (paramCapability1.isSupportedVendor(((Integer)localObject).intValue()))
-        localCapability.addSupportedVendor(((Integer)localObject).intValue());
+    Capability intersectCapability = new Capability();
+    for (Iterator<Integer> itSupportedVendor = capa2.supported_vendor.iterator(); itSupportedVendor.hasNext();) {
+        Integer vendorId = itSupportedVendor.next();
+      if (capa1.isSupportedVendor(vendorId))
+        intersectCapability.addSupportedVendor(vendorId);
     }
-    Object localObject;
-    for (Iterator localIterator = paramCapability2.auth_app.iterator(); localIterator.hasNext();) {Integer localObject2 = (Integer)localIterator.next();
-      if ((((Integer)localObject2).intValue() == -1) || (paramCapability1.auth_app.contains(localObject2)) || (paramCapability1.auth_app.contains(Integer.valueOf(-1))))
+
+    for (Iterator<Integer> authApp = capa2.auth_app.iterator(); authApp.hasNext();) {
+        Integer auth = authApp.next();
+      if ((auth == -1) || (capa1.auth_app.contains(auth)) || (capa1.auth_app.contains(Integer.valueOf(-1))))
+      {
+        intersectCapability.addAuthApp(auth);
+      }
+    }
+
+    for (Iterator<Integer> itAcctApp = capa2.acct_app.iterator(); itAcctApp.hasNext();) {
+        Integer acctId = itAcctApp.next();
+      if ((acctId == -1) || (capa1.acct_app.contains(acctId)) || (capa1.acct_app.contains(Integer.valueOf(-1))))
       {
 
-        localCapability.addAuthApp(((Integer)localObject2).intValue()); }
+        intersectCapability.addAcctApp(acctId);
+      }
     }
-    for (Iterator localIterator = paramCapability2.acct_app.iterator(); localIterator.hasNext();) {Integer localObject3 = (Integer)localIterator.next();
-      if ((((Integer)localObject3).intValue() == -1) || (paramCapability1.acct_app.contains(localObject3)) || (paramCapability1.acct_app.contains(Integer.valueOf(-1))))
-      {
 
-        localCapability.addAcctApp(((Integer)localObject3).intValue()); }
-    }
-    for (Iterator localIterator = paramCapability2.auth_vendor.iterator(); localIterator.hasNext();) {VendorApplication localObject4 = (VendorApplication)localIterator.next();
+    for (Iterator<VendorApplication> itAuthVendor = capa2.auth_vendor.iterator(); itAuthVendor.hasNext();) {
+        VendorApplication authVendor = itAuthVendor.next();
       
-      if (paramCapability1.isAllowedAuthApp(((VendorApplication)localObject4).vendor_id, ((VendorApplication)localObject4).application_id))
-        localCapability.addVendorAuthApp(((VendorApplication)localObject4).vendor_id, ((VendorApplication)localObject4).application_id);
+      if (capa1.isAllowedAuthApp((authVendor).vendor_id, (authVendor).application_id))
+        intersectCapability.addVendorAuthApp( authVendor.vendor_id, authVendor.application_id);
     }
-    for (Iterator localIterator = paramCapability2.acct_vendor.iterator(); localIterator.hasNext();) {VendorApplication localObject5 = (VendorApplication)localIterator.next();
+
+    for (Iterator<VendorApplication> itAcctVendor = capa2.acct_vendor.iterator(); itAcctVendor.hasNext();) {
+        VendorApplication acctVendor = itAcctVendor.next();
       
-      if (paramCapability1.isAllowedAcctApp(((VendorApplication)localObject5).vendor_id, ((VendorApplication)localObject5).application_id))
-        localCapability.addVendorAcctApp(((VendorApplication)localObject5).vendor_id, ((VendorApplication)localObject5).application_id);
+      if (capa1.isAllowedAcctApp(acctVendor.vendor_id, acctVendor.application_id))
+        intersectCapability.addVendorAcctApp( acctVendor.vendor_id,  acctVendor.application_id);
     }
-    return localCapability;
+    return intersectCapability;
   }
 }
