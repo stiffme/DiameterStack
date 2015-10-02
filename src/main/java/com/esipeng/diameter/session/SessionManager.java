@@ -71,10 +71,10 @@ public class SessionManager extends com.esipeng.diameter.node.NodeManager
 
 
 
-  public void stop(long paramLong)
+  public void stop(long timeout)
   {
     this.logger.log(Level.FINE, "Stopping session manager");
-    super.stop(paramLong);
+    super.stop(timeout);
     synchronized (this.map_session) {
       this.stop = true;
       this.map_session.notify();
@@ -89,23 +89,23 @@ public class SessionManager extends com.esipeng.diameter.node.NodeManager
 
 
 
-  protected void handleRequest(Message paramMessage, com.esipeng.diameter.node.ConnectionKey paramConnectionKey, Peer paramPeer)
+  protected void handleRequest(Message message, com.esipeng.diameter.node.ConnectionKey connectionKey, Peer peer)
   {
-    this.logger.log(Level.FINE, "Handling request, command_code=" + paramMessage.hdr.command_code);
+    this.logger.log(Level.FINE, "Handling request, command_code=" + message.hdr.command_code);
     
     Message localMessage = new Message();
-    localMessage.prepareResponse(paramMessage);
+    localMessage.prepareResponse(message);
     
-    String str = extractSessionId(paramMessage);
+    String str = extractSessionId(message);
     if (str == null) {
       this.logger.log(Level.FINE, "Cannot handle request - no Session-Id AVP in request");
       localMessage.add(new com.esipeng.diameter.AVP_Unsigned32(268, 5005));
       node().addOurHostAndRealm(localMessage);
       localMessage.add(new com.esipeng.diameter.AVP_Grouped(279, new com.esipeng.diameter.AVP[] { new com.esipeng.diameter.AVP_UTF8String(263, "") }));
-      com.esipeng.diameter.Utils.copyProxyInfo(paramMessage, localMessage);
+      com.esipeng.diameter.Utils.copyProxyInfo(message, localMessage);
       com.esipeng.diameter.Utils.setMandatory_RFC3588(localMessage);
       try {
-        answer(localMessage, paramConnectionKey);
+        answer(localMessage, connectionKey);
       } catch (com.esipeng.diameter.node.NotAnAnswerException localNotAnAnswerException1) {}
       return;
     }
@@ -114,20 +114,20 @@ public class SessionManager extends com.esipeng.diameter.node.NodeManager
       this.logger.log(Level.FINE, "Cannot handle request - Session-Id '" + str + " does not denote a known session");
       localMessage.add(new com.esipeng.diameter.AVP_Unsigned32(268, 5002));
       node().addOurHostAndRealm(localMessage);
-      com.esipeng.diameter.Utils.copyProxyInfo(paramMessage, localMessage);
+      com.esipeng.diameter.Utils.copyProxyInfo(message, localMessage);
       com.esipeng.diameter.Utils.setMandatory_RFC3588(localMessage);
       try {
-        answer(localMessage, paramConnectionKey);
+        answer(localMessage, connectionKey);
       } catch (com.esipeng.diameter.node.NotAnAnswerException localNotAnAnswerException2) {}
       return;
     }
-    int i = localSession.handleRequest(paramMessage);
+    int i = localSession.handleRequest(message);
     localMessage.add(new com.esipeng.diameter.AVP_Unsigned32(268, i));
     node().addOurHostAndRealm(localMessage);
-    com.esipeng.diameter.Utils.copyProxyInfo(paramMessage, localMessage);
+    com.esipeng.diameter.Utils.copyProxyInfo(message, localMessage);
     com.esipeng.diameter.Utils.setMandatory_RFC3588(localMessage);
     try {
-      answer(localMessage, paramConnectionKey);
+      answer(localMessage, connectionKey);
     }
     catch (com.esipeng.diameter.node.NotAnAnswerException localNotAnAnswerException3) {}
   }
@@ -141,19 +141,19 @@ public class SessionManager extends com.esipeng.diameter.node.NodeManager
 
 
 
-  protected void handleAnswer(Message paramMessage, com.esipeng.diameter.node.ConnectionKey paramConnectionKey, Object paramObject)
+  protected void handleAnswer(Message message, com.esipeng.diameter.node.ConnectionKey connectionKey, Object stateObj)
   {
-    if (paramMessage != null) {
-      this.logger.log(Level.FINE, "Handling answer, command_code=" + paramMessage.hdr.command_code);
+    if (message != null) {
+      this.logger.log(Level.FINE, "Handling answer, command_code=" + message.hdr.command_code);
     } else {
       this.logger.log(Level.FINE, "Handling non-answer");
     }
-    String str = extractSessionId(paramMessage);
+    String str = extractSessionId(message);
     this.logger.log(Level.FINEST, "session-id=" + str);
     Session localSession; if (str != null) {
       localSession = findSession(str);
     } else {
-      localSession = ((RequestState)paramObject).session;
+      localSession = ((RequestState) stateObj).session;
     }
     if (localSession == null) {
       this.logger.log(Level.FINE, "Session '" + str + "' not found");
@@ -161,10 +161,10 @@ public class SessionManager extends com.esipeng.diameter.node.NodeManager
     }
     this.logger.log(Level.FINE, "Found session, dispatching (non-)answer to it");
     
-    if (paramMessage != null) {
-      localSession.handleAnswer(paramMessage, ((RequestState)paramObject).state);
+    if (message != null) {
+      localSession.handleAnswer(message, ((RequestState) stateObj).state);
     } else {
-      localSession.handleNonAnswer(((RequestState)paramObject).command_code, ((RequestState)paramObject).state);
+      localSession.handleNonAnswer(((RequestState) stateObj).command_code, ((RequestState) stateObj).state);
     }
   }
   

@@ -56,10 +56,10 @@ class TCPNode extends NodeImplementation
 		this.selector.wakeup();
 	}
 
-	void initiateStop(long paramLong) {
+	void initiateStop(long expire) {
 		this.logger.debug( "Initiating stop of TCP node");
 		this.please_stop = true;
-		this.shutdown_deadline = paramLong;
+		this.shutdown_deadline = expire;
 		this.logger.debug( "Initiated stop of TCP node");
 	}
 
@@ -374,11 +374,11 @@ class TCPNode extends NodeImplementation
 		return true;
 	}
 
-	void close(Connection connection, boolean linger) {
+	void close(Connection connection, boolean quick) {
 		TCPConnection localTCPConnection = (TCPConnection)connection;
 		try {
 			localTCPConnection.channel.register(this.selector, 0);
-			if (linger)
+			if (quick)
 			{
 
 				localTCPConnection.channel.socket().setSoLinger(true, 0);
@@ -387,8 +387,8 @@ class TCPNode extends NodeImplementation
 		} catch (java.io.IOException localIOException) {}
 	}
 
-	Connection newConnection(long watchDogTimer, long idleCloserTimer) {
-		return new TCPConnection(this, watchDogTimer, idleCloserTimer);
+	Connection newConnection(long watchDog, long idle) {
+		return new TCPConnection(this, watchDog, idle);
 	}
 
 	private static int last_tried_port = 0;

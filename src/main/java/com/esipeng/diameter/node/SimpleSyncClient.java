@@ -40,11 +40,11 @@ public class SimpleSyncClient
 
 
 
-  protected void handleAnswer(Message paramMessage, ConnectionKey paramConnectionKey, Object paramObject)
+  protected void handleAnswer(Message message, ConnectionKey connectionKey, Object stateObj)
   {
-    SyncCall localSyncCall = (SyncCall)paramObject;
+    SyncCall localSyncCall = (SyncCall) stateObj;
     synchronized (localSyncCall) {
-      localSyncCall.answer = paramMessage;
+      localSyncCall.answer = message;
       localSyncCall.answer_ready = true;
       localSyncCall.notify();
     }

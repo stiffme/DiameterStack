@@ -32,6 +32,6 @@ class NormalConnectionBuffers extends ConnectionBuffers {
     this.in_buffer = makeSpaceInBuffer(this.in_buffer, 4096);
   }
   
-  void makeSpaceInAppOutBuffer(int paramInt) { this.out_buffer = makeSpaceInBuffer(this.out_buffer, paramInt); }
+  void makeSpaceInAppOutBuffer(int len) { this.out_buffer = makeSpaceInBuffer(this.out_buffer, len); }
 }
 
