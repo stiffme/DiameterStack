@@ -17,6 +17,7 @@ import com.esipeng.diameter.AVP_Unsigned32;
 import com.esipeng.diameter.Message;
 import com.esipeng.diameter.MessageHeader;
 import com.esipeng.diameter.Utils;
+
 import static com.esipeng.diameter.ProtocolConstants.*;
 
 public class NodeManager
@@ -75,15 +76,16 @@ public class NodeManager
         this.stop_timeout_thread = true;
         synchronized (this.req_map) {
             for (Entry<ConnectionKey, Map<Integer, RequestData>> entry : this.req_map.entrySet()) {
-                ConnectionKey connectionkey =  entry.getKey();
+                ConnectionKey connectionkey = entry.getKey();
                 for (Entry<Integer, RequestData> entryRequest : entry.getValue().entrySet())
-                    handleAnswer(null, connectionkey,  entryRequest.getValue().state);
+                    handleAnswer(null, connectionkey, entryRequest.getValue().state);
             }
             this.req_map.notify();
         }
         try {
             this.timeout_thread.join();
-        } catch (InterruptedException localInterruptedException) {}
+        } catch (InterruptedException localInterruptedException) {
+        }
         this.timeout_thread = null;
         this.req_map = new HashMap<ConnectionKey, Map<Integer, RequestData>>();
     }
@@ -95,15 +97,15 @@ public class NodeManager
     }
 
 
-    public boolean waitForConnection(long paramLong)
+    public boolean waitForConnection(long timeout)
             throws InterruptedException {
-        return this.node.waitForConnection(paramLong);
+        return this.node.waitForConnection(timeout);
     }
 
 
-    public void waitForConnectionTimeout(long paramLong)
+    public void waitForConnectionTimeout(long timeout)
             throws InterruptedException, ConnectionTimeoutException {
-        this.node.waitForConnectionTimeout(paramLong);
+        this.node.waitForConnectionTimeout(timeout);
     }
 
 
@@ -154,103 +156,103 @@ public class NodeManager
     }
 
 
-    protected final void forwardRequest(Message paramMessage, ConnectionKey paramConnectionKey, Object paramObject, long paramLong)
+    protected final void forwardRequest(Message message, ConnectionKey connectionKey, Object paramObject, long timeout)
             throws StaleConnectionException, NotARequestException, NotProxiableException {
-        if (!paramMessage.hdr.isProxiable())
+        if (!message.hdr.isProxiable())
             throw new NotProxiableException();
         int i = 0;
         String str = this.settings.hostId();
-        for (AVP localAVP : paramMessage.subset(282)) {
-            if (new AVP_UTF8String(localAVP).queryValue().equals(str)) {
+        for (AVP routeRecord : message.subset(DI_ROUTE_RECORD)) {
+            if (new AVP_UTF8String(routeRecord).queryValue().equals(str)) {
                 i = 1;
                 break;
             }
         }
         if (i == 0) {
-            paramMessage.add(new AVP_UTF8String(282, this.settings.hostId()));
+            message.add(new AVP_UTF8String(DI_ROUTE_RECORD, this.settings.hostId()));
         }
 
-        sendRequest(paramMessage, paramConnectionKey, paramObject, paramLong);
+        sendRequest(message, connectionKey, paramObject, timeout);
     }
 
 
-    protected final void forwardAnswer(Message paramMessage, ConnectionKey paramConnectionKey)
+    protected final void forwardAnswer(Message message, ConnectionKey connectionKey)
             throws StaleConnectionException, NotAnAnswerException, NotProxiableException {
-        if (!paramMessage.hdr.isProxiable())
+        if (!message.hdr.isProxiable())
             throw new NotProxiableException();
-        if (paramMessage.hdr.isRequest()) {
+        if (message.hdr.isRequest()) {
             throw new NotAnAnswerException();
         }
-        paramMessage.add(new AVP_UTF8String(282, this.settings.hostId()));
+        message.add(new AVP_UTF8String(DI_ROUTE_RECORD, this.settings.hostId()));
 
-        answer(paramMessage, paramConnectionKey);
+        answer(message, connectionKey);
     }
 
 
-    public final void sendRequest(Message paramMessage, ConnectionKey paramConnectionKey, Object paramObject)
+    public final void sendRequest(Message message, ConnectionKey connectionKey, Object stateObj)
             throws StaleConnectionException, NotARequestException {
-        sendRequest(paramMessage, paramConnectionKey, paramObject, -1L);
+        sendRequest(message, connectionKey, stateObj, -1L);
     }
 
 
-    public final void sendRequest(Message paramMessage, ConnectionKey paramConnectionKey, Object paramObject, long paramLong)
+    public final void sendRequest(Message message, ConnectionKey connectionKey, Object paramObject, long timeout)
             throws StaleConnectionException, NotARequestException {
-        if (!paramMessage.hdr.isRequest())
+        if (!message.hdr.isRequest())
             throw new NotARequestException();
-        paramMessage.hdr.hop_by_hop_identifier = this.node.nextHopByHopIdentifier(paramConnectionKey);
+        message.hdr.hop_by_hop_identifier = this.node.nextHopByHopIdentifier(connectionKey);
 
         synchronized (this.req_map) {
-            Map<Integer, RequestData> localMap = this.req_map.get(paramConnectionKey);
-            if (localMap == null) throw new StaleConnectionException();
-            if (paramLong > 0)
-                localMap.put(Integer.valueOf(paramMessage.hdr.hop_by_hop_identifier), new RequestData(paramObject, System.currentTimeMillis() + paramLong));
+            Map<Integer, RequestData> requestMap = this.req_map.get(connectionKey);
+            if (requestMap == null) throw new StaleConnectionException();
+            if (timeout > 0)
+                requestMap.put(Integer.valueOf(message.hdr.hop_by_hop_identifier), new RequestData(paramObject, System.currentTimeMillis() + timeout));
             else
-                localMap.put(Integer.valueOf(paramMessage.hdr.hop_by_hop_identifier), new RequestData(paramObject, paramLong));
-            logger.info("Adding h2h" + paramMessage.hdr.hop_by_hop_identifier + " to " + localMap.toString() + "ConnectionKey is " + paramConnectionKey.toString());
-            if ((paramLong >= 0L) && (!this.timeout_thread_actively_waiting))
+                requestMap.put(Integer.valueOf(message.hdr.hop_by_hop_identifier), new RequestData(paramObject, timeout));
+            logger.info("Adding h2h" + message.hdr.hop_by_hop_identifier + " to " + requestMap.toString() + "ConnectionKey is " + connectionKey.toString());
+            if ((timeout >= 0L) && (!this.timeout_thread_actively_waiting))
                 this.req_map.notify();
         }
-        this.node.sendMessage(paramMessage, paramConnectionKey);
-        this.logger.info("Request sent, command_code=" + paramMessage.hdr.command_code + " hop_by_hop_identifier=" + paramMessage.hdr.hop_by_hop_identifier);
+        this.node.sendMessage(message, connectionKey);
+        this.logger.info("Request sent, command_code=" + message.hdr.command_code + " hop_by_hop_identifier=" + message.hdr.hop_by_hop_identifier);
     }
 
 
-    public final void sendRequest(Message paramMessage, Peer[] paramArrayOfPeer, Object paramObject)
+    public final void sendRequest(Message message, Peer[] peers, Object stateObj)
             throws NotRoutableException, NotARequestException {
-        sendRequest(paramMessage, paramArrayOfPeer, paramObject, -1L);
+        sendRequest(message, peers, stateObj, -1L);
     }
 
 
-    public final void sendRequest(Message paramMessage, Peer[] paramArrayOfPeer, Object paramObject, long paramLong)
+    public final void sendRequest(Message message, Peer[] peers, Object stateObj, long timeout)
             throws NotRoutableException, NotARequestException {
-        this.logger.debug("Sending request (command_code=" + paramMessage.hdr.command_code + ") to " + paramArrayOfPeer.length + " peers");
-        paramMessage.hdr.end_to_end_identifier = this.node.nextEndToEndIdentifier();
-        int i = 0;
-        int j = 0;
-        for (Peer localPeer1 : paramArrayOfPeer) {
-            i = 1;
-            this.logger.debug("Considering sending request to " + localPeer1.host());
-            ConnectionKey localConnectionKey = this.node.findConnection(localPeer1);
-            if (localConnectionKey != null) {
-                Peer localPeer2 = this.node.connectionKey2Peer(localConnectionKey);
-                if (localPeer2 != null)
-                    if (!this.node.isAllowedApplication(paramMessage, localPeer2)) {
-                        this.logger.debug("peer " + localPeer1.host() + " cannot handle request");
+        this.logger.debug("Sending request (command_code=" + message.hdr.command_code + ") to " + peers.length + " peers");
+        message.hdr.end_to_end_identifier = this.node.nextEndToEndIdentifier();
+        boolean hasPeers = false;
+        boolean hasCapablePeer = false;
+        for (Peer peer : peers) {
+            hasPeers = true;
+            this.logger.debug("Considering sending request to " + peer.host());
+            ConnectionKey connectionKey = this.node.findConnection(peer);
+            if (connectionKey != null) {
+                Peer peer2 = this.node.connectionKey2Peer(connectionKey);
+                if (peer2 != null)
+                    if (!this.node.isAllowedApplication(message, peer2)) {
+                        this.logger.debug("peer " + peer.host() + " cannot handle request");
                     } else {
-                        j = 1;
+                        hasCapablePeer = true;
                         try {
-                            sendRequest(paramMessage, localConnectionKey, paramObject, paramLong);
+                            sendRequest(message, connectionKey, stateObj, timeout);
                             return;
                         } catch (StaleConnectionException localStaleConnectionException) {
                             this.logger.debug("Setting retransmit bit");
-                            paramMessage.hdr.setRetransmit(true);
+                            message.hdr.setRetransmit(true);
                         }
                     }
             }
         }
-        if (j != 0)
+        if (hasCapablePeer != false)
             throw new NotRoutableException("All capable peer connections went stale");
-        if (i != 0) {
+        if (hasPeers != false) {
             throw new NotRoutableException("No capable peers");
         }
         throw new NotRoutableException();
@@ -264,24 +266,24 @@ public class NodeManager
         } else {
             this.logger.debug("Handling answer, hop_by_hop_identifier=" + message.hdr.hop_by_hop_identifier);
 
-            Object localObject1 = null;
-            int i = 0;
+            Object stateObj = null;
+            boolean isAnswered = false;
             synchronized (this.req_map) {
-                Map<Integer, RequestData> localMap = this.req_map.get(key);
-                if (localMap != null) {
-                    RequestData rq = localMap.get(message.hdr.hop_by_hop_identifier);
+                Map<Integer, RequestData> requestsMap = this.req_map.get(key);
+                if (requestsMap != null) {
+                    RequestData rq = requestsMap.get(message.hdr.hop_by_hop_identifier);
                     if (rq == null) {
-                        logger.warn("h2h " + message.hdr.hop_by_hop_identifier + " not found. LocalMap is " + localMap.toString() + "ConnectionKey is " + key.toString());
+                        logger.warn("h2h " + message.hdr.hop_by_hop_identifier + " not found. LocalMap is " + requestsMap.toString() + "ConnectionKey is " + key.toString());
                         return false;
                     }
-                    localObject1 = (localMap.get(Integer.valueOf(message.hdr.hop_by_hop_identifier))).state;
+                    stateObj = (requestsMap.get(Integer.valueOf(message.hdr.hop_by_hop_identifier))).state;
 
-                    localMap.remove(Integer.valueOf(message.hdr.hop_by_hop_identifier));
-                    i = 1;
+                    requestsMap.remove(Integer.valueOf(message.hdr.hop_by_hop_identifier));
+                    isAnswered = true;
                 }
             }
-            if (i != 0) {
-                handleAnswer(message, key, localObject1);
+            if (isAnswered != false) {
+                handleAnswer(message, key, stateObj);
                 logger.info("h2h " + message.hdr.hop_by_hop_identifier + " answered");
             } else {
                 this.logger.debug("Answer did not match any outstanding request");
@@ -297,13 +299,13 @@ public class NodeManager
                 this.req_map.put(key, new HashMap<Integer, RequestData>());
                 //logger.info( "Saving connection key " + paramConnectionKey.toString(),new Throwable());
             } else {
-                Map<Integer, RequestData> localMap = this.req_map.get(key);
-                if (localMap == null) {
+                Map<Integer, RequestData> requestsMap = this.req_map.get(key);
+                if (requestsMap == null) {
                     return;
                 }
                 this.req_map.remove(key);
                 //logger.info( "Removing connection key " + paramConnectionKey.toString(),new Throwable());
-                for (Entry<Integer, RequestData> localEntry : localMap.entrySet()) {
+                for (Entry<Integer, RequestData> localEntry : requestsMap.entrySet()) {
                     handleAnswer(null, key, localEntry.getValue().state);
                 }
             }
@@ -320,33 +322,31 @@ public class NodeManager
         public void run() {
             while (!NodeManager.this.stop_timeout_thread) {
                 synchronized (NodeManager.this.req_map) {
-                    int i = 0;
-                    long l = System.currentTimeMillis();
-                    for (Iterator<Entry<ConnectionKey, Map<Integer, RequestData>>> localIterator1 = NodeManager.this.req_map.entrySet().iterator(); localIterator1.hasNext(); ) {
-                        Entry<ConnectionKey, Map<Integer, RequestData>> localEntry1 = localIterator1.next();
-                        ConnectionKey localConnectionKey = localEntry1.getKey();
-                        for (Entry<Integer, RequestData> localEntry2 : localEntry1.getValue().entrySet()) {
-                            RequestData localRequestData = (RequestData) localEntry2.getValue();
-                            if (localRequestData.timeout_time >= 0L) i = 1;
-                            if ((localRequestData.timeout_time >= 0L) && (localRequestData.timeout_time <= l)) {
-                                localEntry1.getValue().remove(localEntry2.getKey());
+                    boolean timeoutKey = false;
+                    long currentTime = System.currentTimeMillis();
+                    for (Iterator<Entry<ConnectionKey, Map<Integer, RequestData>>> itConnectionKey = NodeManager.this.req_map.entrySet().iterator(); itConnectionKey.hasNext(); ) {
+                        Entry<ConnectionKey, Map<Integer, RequestData>> connectionKeyEntry = itConnectionKey.next();
+                        ConnectionKey connectionKey = connectionKeyEntry.getKey();
+                        for (Entry<Integer, RequestData> requestDataMap : connectionKeyEntry.getValue().entrySet()) {
+                            RequestData requestData =  requestDataMap.getValue();
+                            if (requestData.timeout_time >= 0L)
+                                timeoutKey = true;
+                            if ((requestData.timeout_time >= 0L) && (requestData.timeout_time <= currentTime)) {
+                                connectionKeyEntry.getValue().remove(requestDataMap.getKey());
                                 NodeManager.this.logger.info("Timing out request");
-                                NodeManager.this.handleAnswer(null, localConnectionKey, localRequestData.state);
+                                NodeManager.this.handleAnswer(null, connectionKey, requestData.state);
                             }
                         }
                     }
                     try {
-                        Entry localEntry1;
-                        ConnectionKey localConnectionKey;
-                        if (i != 0) {
+                        if (timeoutKey != false) {
                             NodeManager.this.timeout_thread_actively_waiting = true;
                             NodeManager.this.req_map.wait(1000L);
                         } else {
                             NodeManager.this.req_map.wait();
                         }
                         NodeManager.this.timeout_thread_actively_waiting = false;
-                    } catch (InterruptedException localInterruptedException) {
-                    }
+                    } catch (InterruptedException localInterruptedException) {}
                 }
             }
         }
