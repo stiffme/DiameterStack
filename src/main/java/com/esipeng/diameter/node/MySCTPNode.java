@@ -93,7 +93,7 @@ class MySCTPNode extends NodeImplementation {
 
         public void run() {
             try {
-                run_();
+                innerRun();
                 if (MySCTPNode.this.serverChannel != null)
                     MySCTPNode.this.serverChannel.close();
             } catch (java.io.IOException localIOException) {
@@ -102,12 +102,12 @@ class MySCTPNode extends NodeImplementation {
             }
         }
 
-        private void run_() throws java.io.IOException, InvalidAVPLengthException {
+        private void innerRun() throws java.io.IOException, InvalidAVPLengthException {
             if (MySCTPNode.this.serverChannel != null) {
                 MySCTPNode.this.serverChannel.configureBlocking(false);
 
 
-                MySCTPNode.this.serverChannel.register(MySCTPNode.this.selector, 16);
+                MySCTPNode.this.serverChannel.register(MySCTPNode.this.selector,SelectionKey.OP_ACCEPT | SelectionKey.OP_CONNECT | SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             }
             for (; ; ) {
                 if (MySCTPNode.this.please_stop) {
@@ -118,54 +118,51 @@ class MySCTPNode extends NodeImplementation {
                 }
                 long l1 = MySCTPNode.this.calcNextTimeout();
 
-                int i;
                 if (l1 != -1L) {
                     long l2 = System.currentTimeMillis();
                     if (l1 > l2) {
-                        i = MySCTPNode.this.selector.select(l1 - l2);
+                        MySCTPNode.this.selector.select(l1 - l2);
                     } else
-                        i = MySCTPNode.this.selector.selectNow();
+                        MySCTPNode.this.selector.selectNow();
                 } else {
-                    i = MySCTPNode.this.selector.select();
+                    MySCTPNode.this.selector.select();
                 }
 
 
                 Iterator<SelectionKey> selectionKeyIterator = MySCTPNode.this.selector.selectedKeys().iterator();
 
                 while (selectionKeyIterator.hasNext()) {
-                    SelectionKey localSelectionKey = selectionKeyIterator.next();
-                    //Object socketChannel;
-                    //Object connection;
-                    if (localSelectionKey.isAcceptable()) {
+                    SelectionKey selectionKey = selectionKeyIterator.next();
+                    if (selectionKey.isAcceptable()) {
                         MySCTPNode.this.logger.debug("Got an inbound connection (key is acceptable)");
-                        SctpServerChannel sctpServerChannel = (SctpServerChannel) localSelectionKey.channel();
-                        SctpChannel sctpChannel = ((SctpServerChannel) sctpServerChannel).accept();
+                        SctpServerChannel sctpServerChannel = (SctpServerChannel) selectionKey.channel();
+                        SctpChannel sctpChannel = sctpServerChannel.accept();
                         Iterator<SocketAddress> it = sctpChannel.getRemoteAddresses().iterator();
                         SocketAddress sockAddr = it.next();
 
-                        java.net.InetSocketAddress localInetSocketAddress = (java.net.InetSocketAddress) sockAddr;
-                        MySCTPNode.this.logger.debug("Got an inbound connection from {}", localInetSocketAddress.toString());
+                        java.net.InetSocketAddress inetAddress = (java.net.InetSocketAddress) sockAddr;
+                        MySCTPNode.this.logger.debug("Got an inbound connection from {}", inetAddress.toString());
                         if (!MySCTPNode.this.please_stop) {
                             SCTPConnection sctpConnection = new SCTPConnection(MySCTPNode.this, MySCTPNode.this.settings.watchdogInterval(), MySCTPNode.this.settings.idleTimeout());
-                            sctpConnection.host_id = localInetSocketAddress.getAddress().getHostAddress();
+                            sctpConnection.host_id = inetAddress.getAddress().getHostAddress();
                             sctpConnection.state = Connection.State.connected_in;
                             sctpConnection.channel = sctpChannel;
                             sctpChannel.configureBlocking(false);
-                            sctpChannel.register(MySCTPNode.this.selector, 1, sctpConnection);
+                            sctpChannel.register(MySCTPNode.this.selector, selectionKey.OP_READ, sctpConnection);
 
                             MySCTPNode.this.registerInboundConnection(sctpConnection);
                         } else {
                             sctpChannel.close();
                         }
-                    } else if (localSelectionKey.isConnectable()) {
+                    } else if (selectionKey.isConnectable()) {
                         MySCTPNode.this.logger.debug("An outbound connection is ready (key is connectable)");
-                        SctpChannel socketChannel = (SctpChannel) localSelectionKey.channel();
-                        SCTPConnection connection = (SCTPConnection) localSelectionKey.attachment();
+                        SctpChannel socketChannel = (SctpChannel) selectionKey.channel();
+                        SCTPConnection connection = (SCTPConnection) selectionKey.attachment();
                         try {
                             if (socketChannel.finishConnect()) {
                                 MySCTPNode.this.logger.debug("Connected!");
                                 connection.state = Connection.State.connected_out;
-                                socketChannel.register(MySCTPNode.this.selector, 1, connection);
+                                socketChannel.register(MySCTPNode.this.selector, selectionKey.OP_READ, connection);
                                 MySCTPNode.this.initiateCER(connection);
                             }
                         } catch (java.io.IOException localIOException1) {
@@ -175,25 +172,25 @@ class MySCTPNode extends NodeImplementation {
                                 socketChannel.close();
                             } catch (java.io.IOException localIOException2) {
                             }
-                            MySCTPNode.this.unregisterConnection((Connection) connection);
+                            MySCTPNode.this.unregisterConnection( connection);
                         }
-                    } else if (localSelectionKey.isReadable()) {
+                    } else if (selectionKey.isReadable()) {
                         MySCTPNode.this.logger.debug("Key is readable");
 
-                        SctpChannel socketChannel = (SctpChannel) localSelectionKey.channel();
-                        SCTPConnection connection = (SCTPConnection) localSelectionKey.attachment();
+                        SctpChannel socketChannel = (SctpChannel) selectionKey.channel();
+                        SCTPConnection connection = (SCTPConnection) selectionKey.attachment();
                         MySCTPNode.this.handleReadable(connection);
                         if ((connection.state != Connection.State.closed) && (connection.hasNetOutput())) {
-                            (socketChannel).register(MySCTPNode.this.selector, 5, connection);
+                            socketChannel.register(MySCTPNode.this.selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, connection);
                         }
-                    } else if (localSelectionKey.isWritable()) {
+                    } else if (selectionKey.isWritable()) {
                         MySCTPNode.this.logger.debug("Key is writable");
-                        SctpChannel socketChannel = (SctpChannel) localSelectionKey.channel();
-                        SCTPConnection connection = (SCTPConnection) localSelectionKey.attachment();
+                        SctpChannel socketChannel = (SctpChannel) selectionKey.channel();
+                        SCTPConnection connection = (SCTPConnection) selectionKey.attachment();
                         synchronized (MySCTPNode.this.getLockObject()) {
                             MySCTPNode.this.handleWritable(connection);
                             if ((connection.state != Connection.State.closed) && (connection.hasNetOutput())) {
-                                socketChannel.register(MySCTPNode.this.selector, 5, connection);
+                                socketChannel.register(MySCTPNode.this.selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, connection);
                             }
                         }
                     }
@@ -207,10 +204,10 @@ class MySCTPNode extends NodeImplementation {
     }
 
 
-    private void handleReadable(SCTPConnection paramSCTPConnection) throws InvalidAVPLengthException {
+    private void handleReadable(SCTPConnection sctpConnection) throws InvalidAVPLengthException {
         this.logger.debug("handlereadable()...");
-        paramSCTPConnection.makeSpaceInNetInBuffer();
-        ConnectionBuffers localConnectionBuffers = paramSCTPConnection.connection_buffers;
+        sctpConnection.makeSpaceInNetInBuffer();
+        ConnectionBuffers localConnectionBuffers = sctpConnection.connection_buffers;
         this.logger.debug("pre: conn.in_buffer.position=" + localConnectionBuffers.netInBuffer().position());
         int i;
         try {
@@ -218,30 +215,30 @@ class MySCTPNode extends NodeImplementation {
             i = 0;
             //MessageInfo ms;
             do {
-                MessageInfo ms = paramSCTPConnection.channel.receive(localConnectionBuffers.netInBuffer(), null, null);
+                MessageInfo ms = sctpConnection.channel.receive(localConnectionBuffers.netInBuffer(), null, null);
                 if (ms == null) {
                     this.logger.debug("null message info is returned");
                     break;
                 }
                 i = ms.bytes();
                 this.logger.debug("readloop: connection_buffers.netInBuffer().position=" + localConnectionBuffers.netInBuffer().position());
-                paramSCTPConnection.makeSpaceInNetInBuffer();
+                sctpConnection.makeSpaceInNetInBuffer();
             } while (i > 0 && j++ < 3);
 
-            //while (((i = paramSCTPConnection.channel.receive(localConnectionBuffers.netInBuffer(),null,null)) > 0) && (j++ < 3)) {
+            //while (((i = sctpConnection.channel.receive(localConnectionBuffers.netInBuffer(),null,null)) > 0) && (j++ < 3)) {
             //  this.logger.debug( "readloop: connection_buffers.netInBuffer().position=" + localConnectionBuffers.netInBuffer().position());
-            //  paramSCTPConnection.makeSpaceInNetInBuffer();
+            //  sctpConnection.makeSpaceInNetInBuffer();
             //}
         } catch (java.io.IOException localIOException) {
             this.logger.debug("got IOException", localIOException);
-            closeConnection(paramSCTPConnection);
+            closeConnection(sctpConnection);
             return;
         }
-        paramSCTPConnection.processNetInBuffer();
-        processInBuffer(paramSCTPConnection);
-        if ((i < 0) && (paramSCTPConnection.state != Connection.State.closed)) {
+        sctpConnection.processNetInBuffer();
+        processInBuffer(sctpConnection);
+        if ((i < 0) && (sctpConnection.state != Connection.State.closed)) {
             this.logger.debug("count<0");
-            closeConnection(paramSCTPConnection);
+            closeConnection(sctpConnection);
             return;
         }
     }

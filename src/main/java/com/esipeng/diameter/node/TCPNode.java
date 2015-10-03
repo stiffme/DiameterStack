@@ -6,7 +6,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
-import java.util.logging.Level;
 //import java.util.logging.Logger;
 
 
@@ -92,7 +91,7 @@ class TCPNode extends NodeImplementation {
 
         public void run() {
             try {
-                run_();
+                innerRun();
                 if (TCPNode.this.serverChannel != null)
                     TCPNode.this.serverChannel.close();
             } catch (java.io.IOException localIOException) {
@@ -101,7 +100,7 @@ class TCPNode extends NodeImplementation {
             }
         }
 
-        private void run_() throws java.io.IOException, InvalidAVPLengthException {
+        private void innerRun() throws java.io.IOException, InvalidAVPLengthException {
             if (TCPNode.this.serverChannel != null) {
                 TCPNode.this.serverChannel.configureBlocking(false);
 
@@ -117,15 +116,14 @@ class TCPNode extends NodeImplementation {
                 }
                 long l1 = TCPNode.this.calcNextTimeout();
 
-                int i;
                 if (l1 != -1L) {
                     long l2 = System.currentTimeMillis();
                     if (l1 > l2) {
-                        i = TCPNode.this.selector.select(l1 - l2);
+                        TCPNode.this.selector.select(l1 - l2);
                     } else
-                        i = TCPNode.this.selector.selectNow();
+                        TCPNode.this.selector.selectNow();
                 } else {
-                    i = TCPNode.this.selector.select();
+                    TCPNode.this.selector.select();
                 }
 
 
@@ -146,7 +144,7 @@ class TCPNode extends NodeImplementation {
                             connection.state = Connection.State.connected_in;
                             connection.channel = clientSocketChannel;
                             clientSocketChannel.configureBlocking(false);
-                            clientSocketChannel.register(TCPNode.this.selector, 1, connection);
+                            clientSocketChannel.register(TCPNode.this.selector, SelectionKey.OP_READ, connection);
 
                             TCPNode.this.registerInboundConnection(connection);
                         } else {
@@ -160,7 +158,7 @@ class TCPNode extends NodeImplementation {
                             if (socketChannel.finishConnect()) {
                                 TCPNode.this.logger.debug("Connected!");
                                 connection.state = Connection.State.connected_out;
-                                socketChannel.register(TCPNode.this.selector, 1, connection);
+                                socketChannel.register(TCPNode.this.selector, SelectionKey.OP_READ, connection);
                                 TCPNode.this.initiateCER(connection);
                             }
                         } catch (java.io.IOException localIOException1) {
@@ -180,7 +178,7 @@ class TCPNode extends NodeImplementation {
                         TCPConnection connection = (TCPConnection) selectionKey.attachment();
                         TCPNode.this.handleReadable(connection);
                         if ((connection.state != Connection.State.closed) && (connection.hasNetOutput())) {
-                            socketChannel.register(TCPNode.this.selector, 5, connection);
+                            socketChannel.register(TCPNode.this.selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, connection);
                         }
                     } else if (selectionKey.isWritable()) {
                         TCPNode.this.logger.debug("Key is writable");
@@ -189,7 +187,7 @@ class TCPNode extends NodeImplementation {
                         synchronized (TCPNode.this.getLockObject()) {
                             TCPNode.this.handleWritable( connection);
                             if ((connection.state != Connection.State.closed) && (connection.hasNetOutput())) {
-                                socketChannel.register(TCPNode.this.selector, 5, connection);
+                                socketChannel.register(TCPNode.this.selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, connection);
                             }
                         }
                     }
