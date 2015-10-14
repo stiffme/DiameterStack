@@ -43,10 +43,12 @@ extends AVP
 		}
 		AVP[] avps = new AVP[noOfChildren];
 		pos = 0;
+		int avpNo = 0;
 		while (pos < bytes.length) {
 			int m = AVP.decodeSize(bytes, pos, bytes.length - pos);
-			avps[noOfChildren] = new AVP();
-			avps[noOfChildren].decode(bytes, pos, m);
+			avps[avpNo] = new AVP();
+			avps[avpNo].decode(bytes, pos, m);
+			avpNo++;
 			pos += m;
 		}
 		return avps;
