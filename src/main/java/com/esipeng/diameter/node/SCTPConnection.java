@@ -15,11 +15,12 @@ class SCTPConnection extends Connection {
     MySCTPNode node_impl;
     SctpChannel channel;
     ConnectionBuffers connection_buffers;
-
-    public SCTPConnection(MySCTPNode sctpNode, long watchDog, long idle) {
+    int port_number;
+    public SCTPConnection(MySCTPNode sctpNode, long watchDog, long idle,int port_number) {
         super(sctpNode, watchDog, idle);
         this.node_impl = sctpNode;
         this.connection_buffers = new NormalConnectionBuffers();
+        this.port_number = port_number;
     }
 
     void makeSpaceInNetInBuffer() {
@@ -89,9 +90,7 @@ class SCTPConnection extends Connection {
     }
 
     Peer toPeer() {
-        //Iterator<SocketAddress>  it = this.channel.getRemoteAddresses();
-        //InetAddress addr = (InetAddress)it.next();
-        return new Peer(toInetAddress(), 3872);
+        return new Peer(toInetAddress(), port_number, Peer.TransportProtocol.sctp);
     }
 }
 

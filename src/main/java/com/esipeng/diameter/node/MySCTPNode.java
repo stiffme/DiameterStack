@@ -143,7 +143,8 @@ class MySCTPNode extends NodeImplementation {
                         java.net.InetSocketAddress inetAddress = (java.net.InetSocketAddress) sockAddr;
                         MySCTPNode.this.logger.debug("Got an inbound connection from {}", inetAddress.toString());
                         if (!MySCTPNode.this.please_stop) {
-                            SCTPConnection sctpConnection = new SCTPConnection(MySCTPNode.this, MySCTPNode.this.settings.watchdogInterval(), MySCTPNode.this.settings.idleTimeout());
+                            SCTPConnection sctpConnection = new SCTPConnection(MySCTPNode.this, MySCTPNode.this.settings.watchdogInterval(),
+                                    MySCTPNode.this.settings.idleTimeout(), MySCTPNode.this.settings.port());
                             sctpConnection.host_id = inetAddress.getAddress().getHostAddress();
                             sctpConnection.state = Connection.State.connected_in;
                             sctpConnection.channel = sctpChannel;
@@ -356,6 +357,7 @@ class MySCTPNode extends NodeImplementation {
                     this.logger.debug("Connected!");
                     localSCTPConnection.state = Connection.State.connected_out;
                     localSCTPConnection.channel = localSocketChannel;
+                    localSCTPConnection.port_number = peer.port();
                     this.selector.wakeup();
                     localSocketChannel.register(this.selector, 1, localSCTPConnection);
                     initiateCER(localSCTPConnection);
@@ -370,6 +372,7 @@ class MySCTPNode extends NodeImplementation {
             }
             localSCTPConnection.state = Connection.State.connecting;
             localSCTPConnection.channel = localSocketChannel;
+            localSCTPConnection.port_number = peer.port();
             this.selector.wakeup();
             localSocketChannel.register(this.selector, 8, localSCTPConnection);
         } catch (java.io.IOException localIOException) {
@@ -392,7 +395,7 @@ class MySCTPNode extends NodeImplementation {
     }
 
     Connection newConnection(long watchDog, long idle) {
-        return new SCTPConnection(this, watchDog, idle);
+        return new SCTPConnection(this, watchDog, idle,settings.port());
     }
 
     private static int last_tried_port = 0;
